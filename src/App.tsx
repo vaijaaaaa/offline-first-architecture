@@ -1,29 +1,95 @@
-import Database from "@tauri-apps/plugin-sql";
+import { FormEvent, useEffect, useState } from "react";
 import "./App.css";
+import type { Todo } from "./types";
+import { todoService } from "./services/todoService";
 
 function App() {
-  async function testDb() {
-    const db = await Database.load("sqlite:offline_todo.db");
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [title, setTitle] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+  async function loadTodos() {
+    setLoading(true);
+    try {
+      const items = await todoService.list();
+      setTodos(items);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    await db.execute(
-      "INSERT INTO todos (id, title, completed, created_at, updated_at, synced) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-      [id, "First local todo", 0, now, now, 0]
-    );
+  useEffect(() => {
+    loadTodos();
+  }, []);
 
-    const rows = await db.select(
-      "SELECT id, title, completed, created_at, updated_at FROM todos WHERE deleted_at IS NULL"
-    );
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed) return;
 
-    console.log("todos:", rows);
+    await todoService.create(trimmed);
+    setTitle("");
+    await loadTodos();
+  }
+
+  async function onToggle(todo: Todo) {
+    await todoService.toggleComplete(todo.id, !todo.completed);
+    await loadTodos();
+  }
+
+  async function onDelete(todo: Todo) {
+    await todoService.remove(todo.id);
+    await loadTodos();
   }
 
   return (
     <main className="container">
-      <h1>SQLite Test</h1>
-      <button onClick={testDb}>Test SQLite</button>
+      <h1>Offline Todo</h1>
+
+      <form onSubmit={onCreate} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Add a todo..."
+          style={{ flex: 1 }}
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      {loading ? (
+        <p>Loading...</p>
+      ) : todos.length === 0 ? (
+        <p>No todos yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {todos.map((todo) => (
+            <li
+              key={todo.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onChange={() => onToggle(todo)}
+              />
+              <span
+                style={{
+                  flex: 1,
+                  textDecoration: todo.completed ? "line-through" : "none",
+                }}
+              >
+                {todo.title}
+              </span>
+              <button onClick={() => onDelete(todo)}>Delete</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }
