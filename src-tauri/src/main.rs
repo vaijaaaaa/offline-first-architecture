@@ -1,6 +1,22 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod db;
+
+use tauri_plugin_sql::Builder as SqlBuilder;
+
+#[tauri::command]
+fn ping() -> String {
+    "pong".to_string()
+}
+
 fn main() {
-    offline_first_architecture_lib::run()
+    tauri::Builder::default()
+        .plugin(
+            SqlBuilder::default()
+                .add_migrations("sqlite:offline_todo.db", db::get_migrations())
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![ping])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

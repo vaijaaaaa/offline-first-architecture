@@ -1,11 +1,11 @@
-use tauri_plugin_sql::{Migration, MigrationBuilder};
+use tauri_plugin_sql::{Migration, MigrationKind};
 
 pub fn get_migrations() -> Vec<Migration> {
     vec![
-        MigrationBuilder::new(0)
-            .description("create todos and sync_queue tables")
-            .sql(
-                r#"
+        Migration {
+            version: 1,
+            description: "create todos and sync_queue tables",
+            sql: r#"
                 CREATE TABLE IF NOT EXISTS todos (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -32,9 +32,8 @@ pub fn get_migrations() -> Vec<Migration> {
 
                 CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
                 CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id);
-                "#,
-            )
-            .build()
-            .unwrap(),
+            "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
