@@ -1,49 +1,29 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import Database from "@tauri-apps/plugin-sql";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  async function testDb() {
+    const db = await Database.load("sqlite:offline_todo.db");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await db.execute(
+      "INSERT INTO todos (id, title, completed, created_at, updated_at, synced) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+      [id, "First local todo", 0, now, now, 0]
+    );
+
+    const rows = await db.select(
+      "SELECT id, title, completed, created_at, updated_at FROM todos WHERE deleted_at IS NULL"
+    );
+
+    console.log("todos:", rows);
   }
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <h1>SQLite Test</h1>
+      <button onClick={testDb}>Test SQLite</button>
     </main>
   );
 }
