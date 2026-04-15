@@ -10,7 +10,7 @@ export interface Todo {
 
 export interface SyncQueueItem{
     id : string;
-    enitiyType : 'todo';
+    entityType : 'todo';
     entityId:string;
     operation : 'create' | 'update' | 'delete';
     payload : Record<string,unknown>;
