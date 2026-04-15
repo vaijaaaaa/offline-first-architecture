@@ -5,7 +5,11 @@ Offline-first desktop todo application built with Tauri, React, TypeScript, SQLi
 <img width="1220" height="4672" alt="offline-firsr-arc" src="https://github.com/user-attachments/assets/5d630bfe-e475-4dc3-9e25-e183c0ab7c3d" />
 
 ## Video Reference
-<iframe width="560" height="315" src="https://www.youtube.com/embed/Sd_eMVEKVfE?si=yhBjhL-GecXOFWQY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p align="center">
+  <a href="https://youtu.be/Sd_eMVEKVfE?si=82UQTTRe1PaAKh7s" target="_blank">
+    <img src="https://img.youtube.com/vi/Sd_eMVEKVfE/maxresdefault.jpg" alt="Watch the architecture video" width="700" />
+  </a>
+</p>
 
 ## Overview
 
