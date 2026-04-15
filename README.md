@@ -1,7 +1,52 @@
-# Tauri + React + Typescript
+# Offline-First Todo App
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Offline-first desktop todo application built with Tauri, React, TypeScript, SQLite, and Supabase.
 
-## Recommended IDE Setup
+## Overview
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- UI reads from local SQLite only
+- All writes go to local SQLite first
+- Every write creates a sync event in `sync_queue`
+- Sync service pushes pending events to Supabase when online
+
+## Stack
+
+- Tauri 2
+- React 19
+- TypeScript
+- SQLite via `tauri-plugin-sql`
+- Supabase PostgreSQL
+
+## Key Tables
+
+- `todos` - local todo data and cloud mirror
+- `sync_queue` - pending local sync events
+
+## Features
+
+- Create todo
+- List todos
+- Toggle completion
+- Delete todo
+- Show sync status
+- Show pending sync count
+
+## Setup
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Create a `.env` file with:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+```
+
+## Architecture
+
+`components -> services -> repositories -> db`
+
+Local SQLite is the source of truth for the UI. Supabase is a cloud mirror used for sync.
