@@ -60,7 +60,8 @@ export async function getPendingSyncEvents(): Promise<SyncQueueItem[]> {
       id, entity_type, entity_id, operation, payload, status,
       created_at, synced_at, retry_count, last_error
      FROM sync_queue
-     WHERE status = 'pending'
+     WHERE status IN ('pending', 'failed')
+       AND retry_count < 5
      ORDER BY created_at ASC`
   );
 

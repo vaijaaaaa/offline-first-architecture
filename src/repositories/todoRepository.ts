@@ -100,14 +100,12 @@ export async function toggleTodoCompleted(
   await updateTodo(id, { completed });
 }
 
-export async function softDeleteTodo(id: string): Promise<void> {
+export async function deleteTodo(id: string): Promise<void> {
   const db = await getDb();
-  const now = new Date().toISOString();
 
   await db.execute(
-    `UPDATE todos
-     SET deleted_at = ?1, updated_at = ?2, synced = 0
-     WHERE id = ?3`,
-    [now, now, id]
+    `DELETE FROM todos
+     WHERE id = ?1`,
+    [id]
   );
 }

@@ -3,7 +3,7 @@ import {
   createTodo,
   getTodos,
   toggleTodoCompleted,
-  softDeleteTodo,
+  deleteTodo,
   updateTodo,
 } from "../repositories/todoRepository";
 import { enqueueSyncEvent } from "../repositories/syncQueueRepository";
@@ -46,14 +46,13 @@ export const todoService = {
   },
 
   async remove(id: string): Promise<void> {
-    const deletedAt = new Date().toISOString();
-    await softDeleteTodo(id);
+    await deleteTodo(id);
 
     await enqueueSyncEvent({
       entityType: "todo",
       entityId: id,
       operation: "delete",
-      payload: { deletedAt },
+      payload: {},
     });
   },
 

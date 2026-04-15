@@ -3,6 +3,8 @@ import "./App.css";
 import type { Todo } from "./types";
 import { todoService } from "./services/todoService";
 import { getPendingSyncEvents } from "./repositories/syncQueueRepository";
+import { supabase } from "./lib/supabaseClient";
+import { syncService } from "./services/syncService";
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -48,6 +50,31 @@ function App() {
     console.log("Pending sync events :",events);
     
   }
+  async function testSupabaseConnection() {
+  try {
+    const { data, error } = await supabase
+      .from("todos")
+      .select("*")
+      .limit(1);
+    
+    if (error) {
+      console.error("Supabase error:", error);
+    } else {
+      console.log("Supabase connection successful. Todos found:", data?.length);
+    }
+  } catch (err) {
+    console.error("Connection failed:", err);
+  }
+}
+async function handleManualSync() {
+  try {
+    const result = await syncService.syncPendingEvents();
+    console.log("Sync result:", result);
+    await loadTodos(); // Refresh to update pending count
+  } catch (error) {
+    console.error("Sync failed:", error);
+  }
+}
   return (
     <main className="container">
       <h1>Offline Todo</h1>
@@ -97,7 +124,14 @@ function App() {
         </ul>
       )}
       <button type="button" onClick={debugPendingSync}>Show Pending Sync Events</button>
+      <button type="button" onClick={testSupabaseConnection}>
+  Test Supabase
+</button>
+<button type="button" onClick={handleManualSync}>
+  Manual Sync to Supabase
+</button>
     </main>
+    
   );
 }
 
