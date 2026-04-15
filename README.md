@@ -2,8 +2,8 @@
 
 Offline-first desktop todo application built with Tauri, React, TypeScript, SQLite, and Supabase.
 ## Architecture
-<img width="703" height="481" alt="offline-firsr-arc" src="https://github.com/user-attachments/assets/5d630bfe-e475-4dc3-9e25-e183c0ab7c3d" />
-`components -> services -> repositories -> db`
+<img width="1220" height="4672" alt="offline-firsr-arc" src="https://github.com/user-attachments/assets/5d630bfe-e475-4dc3-9e25-e183c0ab7c3d" />
+
 ## Video Reference
 <p align="center">
   <a href="https://youtu.be/Sd_eMVEKVfE?si=4UMQmMMB76rpUhAJ">
