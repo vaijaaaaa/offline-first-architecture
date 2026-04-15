@@ -6,10 +6,28 @@ import {
   softDeleteTodo,
   updateTodo,
 } from "../repositories/todoRepository";
+import { enqueueSyncEvent } from "../repositories/syncQueueRepository";
 
 export const todoService = {
   async create(title: string, description?: string): Promise<Todo> {
-    return createTodo(title, description);
+    const todo = await createTodo(title, description);
+
+    await enqueueSyncEvent({
+      entityType: "todo",
+      entityId: todo.id,
+      operation: "create",
+      payload: {
+        id: todo.id,
+        title: todo.title,
+        description: todo.description ?? null,
+        completed: todo.completed,
+        createdAt: todo.createdAt,
+        updatedAt: todo.updatedAt,
+        deletedAt: todo.deletedAt ?? null,
+      },
+    });
+
+    return todo;
   },
 
   async list(): Promise<Todo[]> {
@@ -18,10 +36,25 @@ export const todoService = {
 
   async toggleComplete(id: string, completed: boolean): Promise<void> {
     await toggleTodoCompleted(id, completed);
+
+    await enqueueSyncEvent({
+      entityType: "todo",
+      entityId: id,
+      operation: "update",
+      payload: { completed },
+    });
   },
 
   async remove(id: string): Promise<void> {
+    const deletedAt = new Date().toISOString();
     await softDeleteTodo(id);
+
+    await enqueueSyncEvent({
+      entityType: "todo",
+      entityId: id,
+      operation: "delete",
+      payload: { deletedAt },
+    });
   },
 
   async edit(
@@ -29,5 +62,12 @@ export const todoService = {
     updates: { title?: string; description?: string; completed?: boolean }
   ): Promise<void> {
     await updateTodo(id, updates);
+
+    await enqueueSyncEvent({
+      entityType: "todo",
+      entityId: id,
+      operation: "update",
+      payload: updates,
+    });
   },
 };

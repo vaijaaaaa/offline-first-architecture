@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import "./App.css";
 import type { Todo } from "./types";
 import { todoService } from "./services/todoService";
+import { getPendingSyncEvents } from "./repositories/syncQueueRepository";
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -42,6 +43,11 @@ function App() {
     await loadTodos();
   }
 
+  async function debugPendingSync(){
+    const events = await getPendingSyncEvents();
+    console.log("Pending sync events :",events);
+    
+  }
   return (
     <main className="container">
       <h1>Offline Todo</h1>
@@ -90,6 +96,7 @@ function App() {
           ))}
         </ul>
       )}
+      <button type="button" onClick={debugPendingSync}>Show Pending Sync Events</button>
     </main>
   );
 }
