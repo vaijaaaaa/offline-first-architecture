@@ -46,7 +46,7 @@ export async function enqueueSyncEvent(input: {
     payload: input.payload,
     status: "pending",
     createdAt,
-    syncedAt: null,
+    syncedAt: null, 
     retryCount: 0,
     lastError: null,
   };
