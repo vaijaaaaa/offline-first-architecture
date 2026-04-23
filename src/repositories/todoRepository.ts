@@ -14,14 +14,15 @@ type TodoRow = {
 
 export async function createTodo (
     title : string,
-    description? : string
+    description? : string,
+    existingId? : string
 ) : Promise<Todo>{
     const db = await getDb();
     const now = new Date().toISOString();
-    const id = crypto.randomUUID();
+    const id = existingId ?? crypto.randomUUID();
 
     await db.execute(
-        `INSERT INTO todos (id, title, description, completed, created_at, updated_at, deleted_at, synced)
+        `INSERT OR REPLACE INTO todos (id, title, description, completed, created_at, updated_at, deleted_at, synced)
      VALUES (?1, ?2, ?3, 0, ?4, ?5, NULL, 0)`,
     [id, title, description ?? null, now, now]
     )
@@ -65,32 +66,34 @@ export async function updateTodo(
   const db = await getDb();
   const now = new Date().toISOString();
 
+  const setClauses: string[] = ["updated_at = ?1", "synced = 0"];
+  const values: (string | number)[] = [now];
+  let paramIndex = 2;
+
   if (typeof updates.title !== "undefined") {
-    await db.execute(
-      `UPDATE todos
-       SET title = ?1, updated_at = ?2, synced = 0
-       WHERE id = ?3`,
-      [updates.title, now, id]
-    );
+    setClauses.push(`title = ?${paramIndex}`);
+    values.push(updates.title);
+    paramIndex++;
   }
 
   if (typeof updates.description !== "undefined") {
-    await db.execute(
-      `UPDATE todos
-       SET description = ?1, updated_at = ?2, synced = 0
-       WHERE id = ?3`,
-      [updates.description, now, id]
-    );
+    setClauses.push(`description = ?${paramIndex}`);
+    values.push(updates.description ?? null);
+    paramIndex++;
   }
 
   if (typeof updates.completed !== "undefined") {
-    await db.execute(
-      `UPDATE todos
-       SET completed = ?1, updated_at = ?2, synced = 0
-       WHERE id = ?3`,
-      [updates.completed ? 1 : 0, now, id]
-    );
+    setClauses.push(`completed = ?${paramIndex}`);
+    values.push(updates.completed ? 1 : 0);
+    paramIndex++;
   }
+
+  values.push(id);
+
+  await db.execute(
+    `UPDATE todos SET ${setClauses.join(", ")} WHERE id = ?${paramIndex}`,
+    values
+  );
 }
 
 export async function toggleTodoCompleted(
@@ -102,10 +105,36 @@ export async function toggleTodoCompleted(
 
 export async function deleteTodo(id: string): Promise<void> {
   const db = await getDb();
+  const now = new Date().toISOString();
 
   await db.execute(
-    `DELETE FROM todos
+    `UPDATE todos
+     SET deleted_at = ?1, updated_at = ?1, synced = 0
+     WHERE id = ?2`,
+    [now, id]
+  );
+}
+
+export async function getTodoById(id: string): Promise<Todo | null> {
+  const db = await getDb();
+
+  const rows = await db.select<TodoRow[]>(
+    `SELECT id, title, description, completed, created_at, updated_at, deleted_at
+     FROM todos
      WHERE id = ?1`,
     [id]
   );
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0];
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? undefined,
+    completed: row.completed === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+  };
 }

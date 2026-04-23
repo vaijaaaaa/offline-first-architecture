@@ -13,7 +13,23 @@ export const syncService = {
 
     const events = await getPendingSyncEvents();
 
-    for (const event of events) {
+    const creates = events.filter((e) => e.operation === "create");
+    const updates = events.filter((e) => e.operation === "update");
+    const deletes = events.filter((e) => e.operation === "delete");
+
+    const orderedEvents = [...creates, ...updates, ...deletes];
+
+    for (let i = 0; i < orderedEvents.length; i++) {
+      const event = orderedEvents[i];
+      const hasDelete = orderedEvents
+        .slice(i + 1)
+        .some((e) => e.entityId === event.entityId && e.operation === "delete");
+
+      if (hasDelete && event.operation !== "delete") {
+        await markSyncEventSynced(event.id);
+        continue;
+      }
+
       try {
         await syncEvent(event);
         await markSyncEventSynced(event.id);
@@ -34,7 +50,13 @@ async function syncEvent(event: SyncQueueItem): Promise<void> {
   const snakeCasePayload = toSnakeCase(event.payload);
 
   if (event.operation === "create") {
-    const { error } = await supabase.from("todos").insert([snakeCasePayload]);
+    const { error } = await supabase.from("todos").upsert(
+      {
+        ...snakeCasePayload,
+        id: event.entityId,
+      },
+      { onConflict: "id" }
+    );
     if (error) throw new Error(error.message);
   } else if (event.operation === "update") {
     const { error } = await supabase

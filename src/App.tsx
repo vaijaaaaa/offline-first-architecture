@@ -10,12 +10,16 @@ function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function loadTodos() {
     setLoading(true);
     try {
       const items = await todoService.list();
       setTodos(items);
+    } catch (err) {
+      setError("Failed to load todos");
     } finally {
       setLoading(false);
     }
@@ -25,24 +29,48 @@ function App() {
     loadTodos();
   }, []);
 
+  function showError(msg: string) {
+    setError(msg);
+    setTimeout(() => setError(null), 3000);
+  }
+
+  function showSuccess(msg: string) {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(null), 2000);
+  }
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    await todoService.create(trimmed);
-    setTitle("");
-    await loadTodos();
+    try {
+      await todoService.create(trimmed);
+      setTitle("");
+      showSuccess("Todo created");
+      await loadTodos();
+    } catch (err) {
+      showError("Failed to create todo");
+    }
   }
 
   async function onToggle(todo: Todo) {
-    await todoService.toggleComplete(todo.id, !todo.completed);
-    await loadTodos();
+    try {
+      await todoService.toggleComplete(todo.id, !todo.completed);
+      await loadTodos();
+    } catch (err) {
+      showError("Failed to update todo");
+    }
   }
 
   async function onDelete(todo: Todo) {
-    await todoService.remove(todo.id);
-    await loadTodos();
+    try {
+      await todoService.remove(todo.id);
+      showSuccess("Todo deleted");
+      await loadTodos();
+    } catch (err) {
+      showError("Failed to delete todo");
+    }
   }
 
   async function debugPendingSync(){
@@ -68,16 +96,31 @@ function App() {
 }
 async function handleManualSync() {
   try {
+    setLoading(true);
     const result = await syncService.syncPendingEvents();
     console.log("Sync result:", result);
-    await loadTodos(); // Refresh to update pending count
+    showSuccess(`Synced ${result.synced}, failed ${result.failed}`);
+    await loadTodos();
   } catch (error) {
-    console.error("Sync failed:", error);
+    showError("Sync failed");
+  } finally {
+    setLoading(false);
   }
 }
   return (
     <main className="container">
       <h1>Offline Todo</h1>
+
+      {error && (
+        <div style={{ padding: 8, marginBottom: 16, background: "#fee", color: "#c00" }}>
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div style={{ padding: 8, marginBottom: 16, background: "#efe", color: "#060" }}>
+          {successMessage}
+        </div>
+      )}
 
       <form onSubmit={onCreate} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input
