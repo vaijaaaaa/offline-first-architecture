@@ -6,6 +6,7 @@ export interface Todo {
     createdAt : string;
     updatedAt : string;
     deletedAt?:string|null;
+    synced: boolean;
 }
 
 export interface SyncQueueItem{

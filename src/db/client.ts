@@ -1,9 +1,10 @@
 import Database from "@tauri-apps/plugin-sql";
 
-let dbInstance : Database | null = null;
+let dbPromise: Promise<Database> | null = null;
 
-export async function getDb(){
-    if(dbInstance) return dbInstance;
-    dbInstance = await Database.load("sqlite:offline_todo.db");
-    return dbInstance;
+export async function getDb(): Promise<Database> {
+    if (dbPromise) return dbPromise;
+    
+    dbPromise = Database.load("sqlite:offline_todo.db");
+    return dbPromise;
 }

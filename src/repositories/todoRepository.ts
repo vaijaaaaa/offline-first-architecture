@@ -9,6 +9,7 @@ type TodoRow = {
     created_at : string;
     updated_at : string;
     deleted_at : string | null;
+    synced: number;
 };
 
 
@@ -34,7 +35,7 @@ export async function createTodo (
         createdAt:now,
         updatedAt:now,
         deletedAt:null,
-
+        synced: false,
     };
 }
 
@@ -42,7 +43,7 @@ export async function getTodos(): Promise<Todo[]> {
   const db = await getDb();
 
   const rows = await db.select<TodoRow[]>(
-    `SELECT id, title, description, completed, created_at, updated_at, deleted_at
+    `SELECT id, title, description, completed, created_at, updated_at, deleted_at, synced
      FROM todos
      WHERE deleted_at IS NULL
      ORDER BY created_at DESC`
@@ -56,7 +57,13 @@ export async function getTodos(): Promise<Todo[]> {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    synced: row.synced === 1,
   }));
+}
+
+export async function markTodoAsSynced(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE todos SET synced = 1 WHERE id = ?1", [id]);
 }
 
 export async function updateTodo(
@@ -119,7 +126,7 @@ export async function getTodoById(id: string): Promise<Todo | null> {
   const db = await getDb();
 
   const rows = await db.select<TodoRow[]>(
-    `SELECT id, title, description, completed, created_at, updated_at, deleted_at
+    `SELECT id, title, description, completed, created_at, updated_at, deleted_at, synced
      FROM todos
      WHERE id = ?1`,
     [id]
@@ -136,5 +143,6 @@ export async function getTodoById(id: string): Promise<Todo | null> {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    synced: row.synced === 1,
   };
 }

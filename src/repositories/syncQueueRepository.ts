@@ -106,3 +106,22 @@ export async function markSyncEventFailed(
     [errorMessage, id]
   );
 }
+
+export async function pruneSyncedEvents(olderThanDays = 7): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `DELETE FROM sync_queue 
+     WHERE status = 'synced' 
+     AND synced_at < datetime('now', '-' || ?1 || ' days')`,
+    [olderThanDays]
+  );
+}
+
+export async function hasPendingEvents(entityId: string): Promise<boolean> {
+  const db = await getDb();
+  const rows = await db.select<{ count: number }[]>(
+    "SELECT COUNT(*) as count FROM sync_queue WHERE entity_id = ?1 AND status IN ('pending', 'failed')",
+    [entityId]
+  );
+  return rows[0].count > 0;
+}
