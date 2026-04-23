@@ -80,7 +80,12 @@ function toSnakeCase(
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-    result[snakeKey] = value;
+    // If value is a plain object, recurse (though not currently needed for this schema)
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+       result[snakeKey] = toSnakeCase(value as Record<string, unknown>);
+    } else {
+       result[snakeKey] = value;
+    }
   }
   return result;
 }

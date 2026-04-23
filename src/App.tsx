@@ -1,9 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useCallback } from "react";
 import "./App.css";
 import type { Todo } from "./types";
 import { todoService } from "./services/todoService";
-import { getPendingSyncEvents } from "./repositories/syncQueueRepository";
-import { supabase } from "./lib/supabaseClient";
 import { syncService } from "./services/syncService";
 
 function App() {
@@ -11,33 +9,35 @@ function App() {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
-  async function loadTodos() {
-    setLoading(true);
+  const loadTodos = useCallback(async () => {
     try {
       const items = await todoService.list();
       setTodos(items);
     } catch (err) {
       setError("Failed to load todos");
-    } finally {
-      setLoading(false);
     }
-  }
+  }, []);
+
+  const triggerSync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await syncService.syncPendingEvents();
+      await loadTodos();
+    } catch (err) {
+      console.error("Auto-sync failed", err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, loadTodos]);
 
   useEffect(() => {
     loadTodos();
+    // Initial sync on mount
+    triggerSync();
   }, []);
-
-  function showError(msg: string) {
-    setError(msg);
-    setTimeout(() => setError(null), 3000);
-  }
-
-  function showSuccess(msg: string) {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(null), 2000);
-  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -47,10 +47,10 @@ function App() {
     try {
       await todoService.create(trimmed);
       setTitle("");
-      showSuccess("Todo created");
       await loadTodos();
+      triggerSync(); // Trigger sync after operation
     } catch (err) {
-      showError("Failed to create todo");
+      setError("Failed to create todo");
     }
   }
 
@@ -58,67 +58,35 @@ function App() {
     try {
       await todoService.toggleComplete(todo.id, !todo.completed);
       await loadTodos();
+      triggerSync();
     } catch (err) {
-      showError("Failed to update todo");
+      setError("Failed to update todo");
     }
   }
 
   async function onDelete(todo: Todo) {
     try {
       await todoService.remove(todo.id);
-      showSuccess("Todo deleted");
       await loadTodos();
+      triggerSync();
     } catch (err) {
-      showError("Failed to delete todo");
+      setError("Failed to delete todo");
     }
   }
 
-  async function debugPendingSync(){
-    const events = await getPendingSyncEvents();
-    console.log("Pending sync events :",events);
-    
-  }
-  async function testSupabaseConnection() {
-  try {
-    const { data, error } = await supabase
-      .from("todos")
-      .select("*")
-      .limit(1);
-    
-    if (error) {
-      console.error("Supabase error:", error);
-    } else {
-      console.log("Supabase connection successful. Todos found:", data?.length);
-    }
-  } catch (err) {
-    console.error("Connection failed:", err);
-  }
-}
-async function handleManualSync() {
-  try {
-    setLoading(true);
-    const result = await syncService.syncPendingEvents();
-    console.log("Sync result:", result);
-    showSuccess(`Synced ${result.synced}, failed ${result.failed}`);
-    await loadTodos();
-  } catch (error) {
-    showError("Sync failed");
-  } finally {
-    setLoading(false);
-  }
-}
   return (
     <main className="container">
-      <h1>Offline Todo</h1>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1>Offline Todo</h1>
+        <div style={{ fontSize: "0.8rem", color: syncing ? "#3498db" : "#27ae60" }}>
+          {syncing ? "Syncing..." : "Cloud Synced"}
+        </div>
+      </header>
 
       {error && (
-        <div style={{ padding: 8, marginBottom: 16, background: "#fee", color: "#c00" }}>
+        <div style={{ padding: 8, marginBottom: 16, background: "#fee", color: "#c00", borderRadius: 4 }}>
           {error}
-        </div>
-      )}
-      {successMessage && (
-        <div style={{ padding: 8, marginBottom: 16, background: "#efe", color: "#060" }}>
-          {successMessage}
+          <button onClick={() => setError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
         </div>
       )}
 
@@ -129,12 +97,10 @@ async function handleManualSync() {
           placeholder="Add a todo..."
           style={{ flex: 1 }}
         />
-        <button type="submit">Add</button>
+        <button type="submit" disabled={!title.trim()}>Add</button>
       </form>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : todos.length === 0 ? (
+      {todos.length === 0 ? (
         <p>No todos yet.</p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0 }}>
@@ -146,6 +112,10 @@ async function handleManualSync() {
                 alignItems: "center",
                 gap: 8,
                 marginBottom: 8,
+                padding: "8px",
+                background: "#f9f9f9",
+                borderRadius: "4px",
+                borderLeft: todo.synced ? "4px solid #27ae60" : "4px solid #f1c40f"
               }}
             >
               <input
@@ -157,24 +127,33 @@ async function handleManualSync() {
                 style={{
                   flex: 1,
                   textDecoration: todo.completed ? "line-through" : "none",
+                  color: todo.completed ? "#888" : "#333"
                 }}
               >
                 {todo.title}
               </span>
-              <button onClick={() => onDelete(todo)}>Delete</button>
+              <button 
+                onClick={() => onDelete(todo)}
+                style={{ background: "#e74c3c", color: "white", border: "none", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
       )}
-      <button type="button" onClick={debugPendingSync}>Show Pending Sync Events</button>
-      <button type="button" onClick={testSupabaseConnection}>
-  Test Supabase
-</button>
-<button type="button" onClick={handleManualSync}>
-  Manual Sync to Supabase
-</button>
+      
+      <div style={{ marginTop: 20, paddingTop: 10, borderTop: "1px solid #eee" }}>
+         <button 
+            type="button" 
+            onClick={triggerSync} 
+            disabled={syncing}
+            style={{ fontSize: "0.8rem" }}
+          >
+            {syncing ? "Syncing..." : "Force Sync Now"}
+          </button>
+      </div>
     </main>
-    
   );
 }
 
