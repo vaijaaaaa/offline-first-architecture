@@ -9,54 +9,65 @@ import {
 import { markTodoAsSynced } from "../repositories/todoRepository";
 import type { SyncQueueItem } from "../types";
 
+let isSyncing = false;
+
 export const syncService = {
   async syncPendingEvents(): Promise<{ synced: number; failed: number }> {
+    if (isSyncing) {
+        return { synced: 0, failed: 0 };
+    }
+    
+    isSyncing = true;
     let synced = 0;
     let failed = 0;
 
-    const events = await getPendingSyncEvents();
-    const affectedEntities = new Set<string>();
-
-    for (const event of events) {
-      try {
-        await syncEvent(event);
-        await markSyncEventSynced(event.id);
-        
-        if (event.entityType === "todo") {
-          affectedEntities.add(event.entityId);
-        }
-        
-        synced++;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        await markSyncEventFailed(event.id, errorMessage);
-        failed++;
-      }
-    }
-
-    // After processing the batch, update the synced flag for todos that no longer have pending events
-    for (const entityId of affectedEntities) {
-      const stillPending = await hasPendingEvents(entityId);
-      if (!stillPending) {
-        await markTodoAsSynced(entityId);
-      }
-    }
-
     try {
-      await pruneSyncedEvents(7);
-    } catch (e) {
-      console.error("Failed to prune sync queue", e);
-    }
+        const events = await getPendingSyncEvents();
+        const affectedEntities = new Set<string>();
 
-    return { synced, failed };
+        for (const event of events) {
+          try {
+            await syncEvent(event);
+            await markSyncEventSynced(event.id);
+            
+            if (event.entityType === "todo") {
+              affectedEntities.add(event.entityId);
+            }
+            
+            synced++;
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            await markSyncEventFailed(event.id, errorMessage);
+            failed++;
+          }
+        }
+
+        // After processing the batch, update the synced flag for todos that no longer have pending events
+        for (const entityId of affectedEntities) {
+          const stillPending = await hasPendingEvents(entityId);
+          if (!stillPending) {
+            await markTodoAsSynced(entityId);
+          }
+        }
+
+        try {
+          await pruneSyncedEvents(7);
+        } catch (e) {
+          console.error("Failed to prune sync queue", e);
+        }
+
+        return { synced, failed };
+    } finally {
+        isSyncing = false;
+    }
   },
 };
 
 async function syncEvent(event: SyncQueueItem): Promise<void> {
   const snakeCasePayload = toSnakeCase(event.payload);
 
-  if (event.operation === "create" || event.operation === "update") {
+  if (event.operation === "create") {
     const { error } = await supabase.from("todos").upsert(
       {
         ...snakeCasePayload,
@@ -64,6 +75,13 @@ async function syncEvent(event: SyncQueueItem): Promise<void> {
       },
       { onConflict: "id" }
     );
+    if (error) throw new Error(error.message);
+  } else if (event.operation === "update") {
+    // Use .update() for partial updates to prevent overwriting other columns
+    const { error } = await supabase
+      .from("todos")
+      .update(snakeCasePayload)
+      .eq("id", event.entityId);
     if (error) throw new Error(error.message);
   } else if (event.operation === "delete") {
     const { error } = await supabase
